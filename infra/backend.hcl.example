@@ -1,0 +1,5 @@
+# Copy to backend.hcl (not committed) after running scripts/bootstrap-state.sh
+resource_group_name  = "rg-ai381-tfstate"
+storage_account_name = "<your-unique-storage-account>"
+container_name       = "tfstate"
+key                  = "lab4.terraform.tfstate"

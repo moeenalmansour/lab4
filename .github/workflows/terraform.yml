@@ -1,0 +1,40 @@
+# Lab 4 starter workflow. Fill in the TODO steps.
+# Pull request: fmt, validate, a security scan and the plan posted as a comment.
+# Merge to main: apply with OIDC (no stored passwords), then a smoke test on /health.
+name: terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+
+permissions:
+  contents: read
+  id-token: write        # OIDC login to Azure
+  pull-requests: write   # post the plan as a comment
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: "true"
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      # TODO: check out the code (pin the action to a full commit SHA)
+      # TODO: install Terraform (hashicorp/setup-terraform, pinned to a commit SHA)
+      # TODO: terraform fmt -check
+      # TODO: terraform init with your backend settings (from repository variables, never committed)
+      # TODO: terraform validate
+      # TODO: security scan of infra/ with Trivy (trivy config .) or Checkov
+      # TODO: terraform plan, and on pull requests post the plan as a comment
+      # TODO: on push to main only: terraform apply, then curl --fail the app_url output /health
+      - run: echo "Replace this step with the TODO steps above"

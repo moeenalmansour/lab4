@@ -1,0 +1,6 @@
+owner        = "<your-github-user>"
+prefix       = "ai381-<your-name>"
+location     = "westeurope"
+image        = "ghcr.io/<github-user>/<your-image-name>"
+image_tag    = "<short-commit-sha>"
+budget_email = "you@just.edu.jo"
