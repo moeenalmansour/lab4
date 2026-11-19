@@ -28,7 +28,7 @@ variable "image_tag" {
 variable "min_replicas" {
   description = "0 = scale to zero when idle (no cost)"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "budget_amount" {
