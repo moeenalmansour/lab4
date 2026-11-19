@@ -1,6 +1,3 @@
-# Lab 4 starter workflow. Fill in the TODO steps.
-# Pull request: fmt, validate, a security scan and the plan posted as a comment.
-# Merge to main: apply with OIDC (no stored passwords), then a smoke test on /health.
 name: terraform
 
 on:
@@ -13,28 +10,94 @@ on:
 
 permissions:
   contents: read
-  id-token: write        # OIDC login to Azure
-  pull-requests: write   # post the plan as a comment
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: terraform
+  cancel-in-progress: false
 
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC: "true"
+  TF_IN_AUTOMATION: "true"
+  TF_VAR_owner: ${{ vars.TF_VAR_owner }}
+  TF_VAR_prefix: ${{ vars.TF_VAR_prefix }}
+  TF_VAR_location: ${{ vars.TF_VAR_location }}
+  TF_VAR_image: ${{ vars.TF_VAR_image }}
+  TF_VAR_image_tag: ${{ vars.TF_VAR_image_tag }}
+  TF_VAR_budget_email: ${{ vars.TF_VAR_budget_email }}
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'pull_request' && 'plan' || 'production' }}
     defaults:
       run:
+        shell: bash
         working-directory: infra
     steps:
-      # TODO: check out the code (pin the action to a full commit SHA)
-      # TODO: install Terraform (hashicorp/setup-terraform, pinned to a commit SHA)
-      # TODO: terraform fmt -check
-      # TODO: terraform init with your backend settings (from repository variables, never committed)
-      # TODO: terraform validate
-      # TODO: security scan of infra/ with Trivy (trivy config .) or Checkov
-      # TODO: terraform plan, and on pull requests post the plan as a comment
-      # TODO: on push to main only: terraform apply, then curl --fail the app_url output /health
-      - run: echo "Replace this step with the TODO steps above"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=lab4.terraform.tfstate"
+
+      - name: terraform validate
+        run: terraform validate
+
+      - name: Security scan (Trivy)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          version: v0.69.3
+
+      - name: terraform plan
+        run: |
+          terraform plan -input=false -no-color -out=tfplan > plan.txt || { cat plan.txt; exit 1; }
+          cat plan.txt
+
+      - name: Post plan as PR comment
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### Terraform plan'
+            echo '```'
+            head -c 60000 plan.txt
+            echo '```'
+          } > comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+
+      - name: terraform apply
+        if: github.event_name == 'push'
+        run: terraform apply -input=false -auto-approve
+
+      - name: Smoke test /health
+        if: github.event_name == 'push'
+        run: |
+          URL=$(terraform output -raw app_url)
+          for i in 1 2 3 4 5 6; do
+            curl --fail --silent --show-error --max-time 30 "$URL/health" && exit 0
+            sleep 10
+          done
+          exit 1
