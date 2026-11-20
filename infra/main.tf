@@ -80,3 +80,4 @@ resource "azurerm_container_app" "api" {
     }
   }
 }
+# Re-apply from Git to remove manual drift
